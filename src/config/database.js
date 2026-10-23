@@ -8,6 +8,7 @@ export const AppDataSource = new DataSource({
   ssl: {
     rejectUnauthorized: false,
   },
+  applicationName: 'nova-market-api',
   entities: [],
   synchronize: false,
   logging: true,
