@@ -1,6 +1,7 @@
 
 import 'reflect-metadata';
 import { DataSource } from 'typeorm';
+import { Product } from '../entities/Product.js';
 
 export const AppDataSource = new DataSource({
   type: 'postgres',
@@ -9,7 +10,9 @@ export const AppDataSource = new DataSource({
     rejectUnauthorized: false,
   },
   applicationName: 'nova-market-api',
-  entities: [],
+  entities: [Product],
+  migrations: ['src/migrations/*.js'],
+  migrationsTableName: 'migrations',
   synchronize: false,
   logging: true,
 });
