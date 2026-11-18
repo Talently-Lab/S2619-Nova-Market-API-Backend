@@ -1,5 +1,6 @@
 import { AppDataSource } from '../config/database.js';
 import { UserEntity } from '../entities/User.entity.js';
+import { User } from '../entities/User.js';
 import validator from 'validator';
 import { createHttpError } from '../utils/http-error.js';
 
@@ -14,27 +15,24 @@ export function UserModelFactory(userRepository) {
       const user = userRepository.create(userData);
       return userRepository.save(user);
     },
-    findByEmail: async (email) => { 
+    findByEmail: async (email) => {
       validate_mail(email);
-      const normalizedEmail = normalize_email(email);     
+      const normalizedEmail = normalize_email(email);
       return await userRepository.findOneBy({ email: normalizedEmail });
-    }
+    },
+    getPasswordHash: (user) => {
+      validate_user_instance(user);
+      return user.password;
+    },
+    updateLastLogin: async (user) => {
+      validate_user_instance(user);
+      user.lastLogin = new Date();
+      return userRepository.save(user);
+    },
   };
 }
 
-export const UserModel = {
-    create: async (userData) => {
-        validate_mail_and_password(userData.email, userData.password);
-        const user = userRepository.create(userData);
-        return await userRepository.save(user);
-    },
-
-    findByEmail: async (email) => {
-        validate_mail(email);
-        const normalizedEmail = normalize_email(email);
-        return await userRepository.findOneBy({ email: normalizedEmail });
-    }
-};
+export const UserModel = UserModelFactory(userRepository);
 
 function validate_mail_and_password(email, password) {
   if (invalid_type_or_ausent_mail_password(email, password)) {
@@ -66,7 +64,10 @@ function normalize_email(email) {
   return email.trim().toLowerCase();
 }
 
-
-
+function validate_user_instance(user) {
+  if (!(user instanceof User)) {
+    throw new TypeError('Se esperaba una instancia de User.');
+  }
+}
 
 
