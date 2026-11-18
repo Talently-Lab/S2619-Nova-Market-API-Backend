@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { User } from '../../src/entities/User.js';
 import { UserModelFactory } from '../../src/models/user.model.js';
 
 const VALID_EMAIL = 'ana@example.com';
@@ -91,6 +92,60 @@ test('findByEmail devuelve null cuando no encuentra el usuario', async () => {
   assert.deepEqual(calls, [
     ['findOneBy', { email: VALID_EMAIL }],
   ]);
+});
+
+test('getPasswordHash devuelve el hash guardado del usuario', () => {
+  const user = new User({ password: '$2b$12$hash-de-prueba' });
+  const { repository, calls } = createRepository();
+  const model = UserModelFactory(repository);
+
+  const passwordHash = model.getPasswordHash(user);
+
+  assert.equal(passwordHash, user.password);
+  assert.deepEqual(calls, []);
+});
+
+test('updateLastLogin actualiza y persiste la fecha de acceso', async () => {
+  const user = new User({ id: 8, lastLogin: null });
+  const { repository, calls } = createRepository();
+  const model = UserModelFactory(repository);
+  const beforeUpdate = Date.now();
+
+  const updatedUser = await model.updateLastLogin(user);
+
+  assert.ok(updatedUser.lastLogin instanceof Date);
+  assert.ok(updatedUser.lastLogin.getTime() >= beforeUpdate);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0][0], 'save');
+  assert.equal(calls[0][1], user);
+});
+
+test('getPasswordHash rechaza valores que no son instancias de User', () => {
+  const { repository, calls } = createRepository();
+  const model = UserModelFactory(repository);
+
+  assert.throws(
+    () => model.getPasswordHash({ password: '$2b$12$hash-de-prueba' }),
+    {
+      name: 'TypeError',
+      message: 'Se esperaba una instancia de User.',
+    },
+  );
+  assert.deepEqual(calls, []);
+});
+
+test('updateLastLogin rechaza valores que no son instancias de User', async () => {
+  const { repository, calls } = createRepository();
+  const model = UserModelFactory(repository);
+
+  await assert.rejects(
+    model.updateLastLogin({ id: 8, lastLogin: null }),
+    {
+      name: 'TypeError',
+      message: 'Se esperaba una instancia de User.',
+    },
+  );
+  assert.deepEqual(calls, []);
 });
 
 test('create rechaza email ausente o de tipo inválido', async () => {

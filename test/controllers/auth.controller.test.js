@@ -2,6 +2,17 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { authController } from '../../src/controllers/auth.controller.js';
 
+// Completa siempre ambas dependencias; cada test reemplaza solo el servicio que prueba.
+function createController({ createUser, userLogin } = {}) {
+  return authController({
+    createUser: createUser ?? (async () => ({
+      token: 'token-no-usado',
+      data: {},
+    })),
+    userLogin: userLogin ?? (async () => 'token-no-usado'),
+  });
+}
+
 test('responde 201 con el token y los datos del usuario', async () => {
   const requestBody = {
     email: 'ana@example.com',
@@ -14,7 +25,7 @@ test('responde 201 con el token y los datos del usuario', async () => {
     roleId: 1
   };
 
-  const controller = authController({
+  const controller = createController({
     createUser: async (body) => {
       assert.equal(body, requestBody);
       return {
@@ -56,7 +67,7 @@ test('responde 201 con el token y los datos del usuario', async () => {
 test('pasa a next el error que lanza el servicio', async () => {
   const expectedError = new Error('Fallo de prueba');
 
-  const controller = authController({
+  const controller = createController({
     createUser: async () => {
       throw expectedError;
     },
@@ -77,7 +88,7 @@ test('pasa a next el error que lanza el servicio', async () => {
 
 test('rechaza un body nulo y no llama al servicio', async () => {
   let createUserCalled = false;
-  const controller = authController({
+  const controller = createController({
     createUser: async () => {
       createUserCalled = true;
     },
@@ -98,4 +109,66 @@ test('rechaza un body nulo y no llama al servicio', async () => {
     forwardedError.message,
     'El cuerpo de la solicitud debe ser un objeto JSON válido.',
   );
+});
+
+test('responde 201 con el JWT al iniciar sesión correctamente', async () => {
+  const requestBody = {
+    email: 'admin@example.com',
+    password: 'Contra123!',
+  };
+  const controller = createController({
+    userLogin: async (body) => {
+      assert.equal(body, requestBody);
+      return 'jwt-de-prueba';
+    },
+  });
+  const res = {
+    statusCode: undefined,
+    body: undefined,
+    status(code) {
+      this.statusCode = code;
+      return this;
+    },
+    json(body) {
+      this.body = body;
+      return this;
+    },
+  };
+  let forwardedError;
+
+  await controller.loginUser(
+    { body: requestBody },
+    res,
+    (error) => {
+      forwardedError = error;
+    },
+  );
+
+  assert.equal(forwardedError, undefined);
+  assert.equal(res.statusCode, 201);
+  assert.deepEqual(res.body, {
+    status_code: 201,
+    status_description: 'El usuario pudo loguearse correctamente',
+    jwt_token: 'jwt-de-prueba',
+  });
+});
+
+test('pasa a next el error que lanza el servicio de login', async () => {
+  const expectedError = new Error('Fallo de login');
+  const controller = createController({
+    userLogin: async () => {
+      throw expectedError;
+    },
+  });
+  let forwardedError;
+
+  await controller.loginUser(
+    { body: { email: 'admin@example.com', password: 'Contra123!' } },
+    {},
+    (error) => {
+      forwardedError = error;
+    },
+  );
+
+  assert.equal(forwardedError, expectedError);
 });
