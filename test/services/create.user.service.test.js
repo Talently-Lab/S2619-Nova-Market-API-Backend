@@ -75,6 +75,8 @@ test('normaliza el email, crea el usuario y devuelve un JWT sin contraseña', as
   );
 
   const result = await createUser({
+    name: ' Ana ',
+    last_name: ' Pérez ',
     email: '  Ana@Example.com ',
     password: 'ClaveSegura1!',
   });
@@ -82,7 +84,7 @@ test('normaliza el email, crea el usuario y devuelve un JWT sin contraseña', as
   assert.deepEqual(findByEmail.mock.calls[0].arguments, ['  Ana@Example.com ']);
   assert.deepEqual(create.mock.calls[0].arguments[0], {
     name: 'Ana',
-    lastName: '',
+    lastName: 'Pérez',
     email: 'ana@example.com',
     password: 'ClaveSegura1!',
     roleId: 1,
@@ -97,22 +99,53 @@ test('normaliza el email, crea el usuario y devuelve un JWT sin contraseña', as
 });
 
 const validPassword = 'ClaveSegura1!';
+const validUserData = {
+  name: 'Ana',
+  last_name: 'Pérez',
+  email: 'ana@example.com',
+  password: validPassword,
+};
 
 test('rechaza datos faltantes o un email inválido sin llamar al modelo', async (t) => {
   const { findByEmail, create } = mockUserModel(t);
 
   const invalidInputs = [
-    { password: validPassword },
-    { email: 'ana@example.com' },
-    { email: 'ana@example.com', password: 123 },
-    { email: 123, password: validPassword },
+    { ...validUserData, email: undefined },
+    { ...validUserData, password: undefined },
+    { ...validUserData, email: 123 },
+    { ...validUserData, password: 123 },
   ];
 
   for (const input of invalidInputs) {
     await assertHttpError(
       createUser(input),
       400,
-      'El cuerpo de la solicitud debe contener email y password de tipos válidos.',
+      'El cuerpo de la solicitud debe contener name, last_name, email y password de tipos válidos.',
+    );
+  }
+
+  assert.equal(findByEmail.mock.calls.length, 0);
+  assert.equal(create.mock.calls.length, 0);
+});
+
+test('rechaza name o last_name ausentes, vacíos o de tipo inválido', async (t) => {
+  const { findByEmail, create } = mockUserModel(t);
+  const invalidInputs = [
+    { ...validUserData, name: undefined },
+    { ...validUserData, name: '' },
+    { ...validUserData, name: '   ' },
+    { ...validUserData, name: 123 },
+    { ...validUserData, last_name: undefined },
+    { ...validUserData, last_name: '' },
+    { ...validUserData, last_name: '   ' },
+    { ...validUserData, last_name: 123 },
+  ];
+
+  for (const input of invalidInputs) {
+    await assertHttpError(
+      createUser(input),
+      400,
+      'El cuerpo de la solicitud debe contener name, last_name, email y password de tipos válidos.',
     );
   }
 
@@ -132,7 +165,7 @@ test('rechaza contraseñas que no cumplen todos los requisitos', async (t) => {
 
   for (const password of weakPasswords) {
     await assertHttpError(
-      createUser({ email: 'ana@example.com', password }),
+      createUser({ ...validUserData, password }),
       400,
       'La contraseña debe contener al menos una letra mayúscula, una letra minúscula, un número y un carácter especial.',
     );
@@ -148,7 +181,7 @@ test('rechaza el registro si falta JWT_SECRET, antes de consultar el modelo', as
   const { findByEmail, create } = mockUserModel(t);
 
   await assertHttpError(
-    createUser({ email: 'ana@example.com', password: validPassword }),
+    createUser(validUserData),
     500,
     'JWT_SECRET no está configurado.',
   );
@@ -165,7 +198,7 @@ test('rechaza un email existente y no crea otro usuario', async (t) => {
   });
 
   await assertHttpError(
-    createUser({ email: 'Ana@Example.com', password: validPassword }),
+    createUser({ ...validUserData, email: 'Ana@Example.com' }),
     409,
     'El email ya está registrado',
   );

@@ -11,7 +11,7 @@ const userRepository = AppDataSource.getRepository(UserEntity);
 export function UserModelFactory(userRepository) {
   return {
     create: async (userData) => {
-      validate_mail_and_password(userData.email, userData.password);
+      validate_user_data(userData);
       const user = userRepository.create(userData);
       return userRepository.save(user);
     },
@@ -37,6 +37,14 @@ export function UserModelFactory(userRepository) {
 }
 
 export const UserModel = UserModelFactory(userRepository);
+
+function validate_user_data(userData) {
+  if (!userData || typeof userData !== 'object' || Array.isArray(userData)) {
+    throw createHttpError(400, 'Los datos del usuario deben incluir email y contraseña válidos.');
+  }
+
+  validate_mail_and_password(userData.email, userData.password);
+}
 
 function validate_mail_and_password(email, password) {
   if (invalid_type_or_ausent_mail_password(email, password)) {

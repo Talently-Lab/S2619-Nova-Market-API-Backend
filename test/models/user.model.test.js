@@ -50,7 +50,7 @@ async function assertBadRequest(promise, expectedMessage) {
 test('create construye y guarda el usuario', async () => {
   const input = {
     name: 'Ana',
-    lastName: '',
+    lastName: 'Pérez',
     email: VALID_EMAIL,
     password: VALID_PASSWORD,
     roleId: 1,
@@ -243,7 +243,10 @@ test('create rechaza una contraseña de más de 72 bytes', async () => {
   assert.equal(Buffer.byteLength(password, 'utf8'), 73);
 
   await assertBadRequest(
-    model.create({ email: VALID_EMAIL, password }),
+    model.create({
+      email: VALID_EMAIL,
+      password,
+    }),
     'La contraseña es demasiado larga.',
   );
 
@@ -311,6 +314,8 @@ test('create propaga el error del repositorio al guardar', async () => {
 
   await assert.rejects(
     model.create({
+      name: 'Ana',
+      lastName: 'Pérez',
       email: VALID_EMAIL,
       password: VALID_PASSWORD,
     }),
