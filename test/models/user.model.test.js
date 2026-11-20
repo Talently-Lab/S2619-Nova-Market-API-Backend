@@ -94,6 +94,38 @@ test('findByEmail devuelve null cuando no encuentra el usuario', async () => {
   ]);
 });
 
+test('findById devuelve el usuario y consulta por el ID recibido', async () => {
+  const expectedUser = { id: 8, email: VALID_EMAIL };
+  const { repository, calls } = createRepository({
+    userToFind: expectedUser,
+  });
+  const model = UserModelFactory(repository);
+
+  const result = await model.findById(8);
+
+  assert.equal(result, expectedUser);
+  assert.deepEqual(calls, [
+    ['findOneBy', { id: 8 }],
+  ]);
+});
+
+test('findById rechaza IDs que no sean enteros positivos sin consultar el repositorio', async () => {
+  const { repository, calls } = createRepository();
+  const model = UserModelFactory(repository);
+
+  for (const id of [0, -1, 1.5, NaN, '8', null]) {
+    await assert.rejects(
+      model.findById(id),
+      {
+        name: 'TypeError',
+        message: 'El ID debe ser un número entero positivo.',
+      },
+    );
+  }
+
+  assert.deepEqual(calls, []);
+});
+
 test('getPasswordHash devuelve el hash guardado del usuario', () => {
   const user = new User({ password: '$2b$12$hash-de-prueba' });
   const { repository, calls } = createRepository();

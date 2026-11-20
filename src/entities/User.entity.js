@@ -11,6 +11,14 @@ export const UserEntity = new EntitySchema({
       columns: ['email'],
     },
   ],
+  foreignKeys: [
+    {
+      name: 'FK_users_roles_role_id',
+      target: 'Role',
+      columnNames: ['roleId'],
+      referencedColumnNames: ['id'],
+    },
+  ],
   columns: {
     id: {
       type: 'int',
