@@ -48,7 +48,6 @@ export const authController = ({ createUser, userLogin, protectedProfile }) => (
   },
 });
 
-// Lee Authorization desde Express o desde headers en los tests unitarios.
 function getAuthorizationHeader(req) {
   if (typeof req.get === 'function') {
     return req.get('authorization');
@@ -57,7 +56,6 @@ function getAuthorizationHeader(req) {
   return req.headers?.authorization;
 }
 
-// Rechaza headers ausentes antes de que el servicio extraiga el token Bearer.
 function validate_authorization_header(authorizationHeader) {
   if (typeof authorizationHeader !== 'string' || !authorizationHeader.trim()) {
     throw createHttpError(401, 'Falta el header Authorization.');
