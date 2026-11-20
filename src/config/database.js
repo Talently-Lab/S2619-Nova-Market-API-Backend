@@ -3,6 +3,7 @@ import 'reflect-metadata';
 import { DataSource } from 'typeorm';
 import { Product } from '../entities/Product.js';
 import { UserEntity } from '../entities/User.entity.js';
+import { RoleEntity } from '../entities/Role.entity.js';
 import { UserSubscriber } from '../subscribers/UserSubscriber.js';
 
 export const AppDataSource = new DataSource({
@@ -12,7 +13,7 @@ export const AppDataSource = new DataSource({
     rejectUnauthorized: false,
   },
   applicationName: 'nova-market-api',
-  entities: [Product, UserEntity],
+  entities: [Product, UserEntity, RoleEntity],
   subscribers: [UserSubscriber],
   migrations: ['src/migrations/*.js'],
   migrationsTableName: 'migrations',

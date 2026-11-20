@@ -20,6 +20,10 @@ export function UserModelFactory(userRepository) {
       const normalizedEmail = normalize_email(email);
       return await userRepository.findOneBy({ email: normalizedEmail });
     },
+    findById: async (id) => {
+      validate_positive_integer_id(id);
+      return userRepository.findOneBy({ id });
+    },
     getPasswordHash: (user) => {
       validate_user_instance(user);
       return user.password;
@@ -70,4 +74,8 @@ function validate_user_instance(user) {
   }
 }
 
-
+function validate_positive_integer_id(id) {
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new TypeError('El ID debe ser un número entero positivo.');
+  }
+}
