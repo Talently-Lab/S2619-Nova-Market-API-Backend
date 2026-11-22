@@ -1,6 +1,24 @@
 import jwt from 'jsonwebtoken';
 import { createHttpError } from '../utils/http-error.js';
 
+/**
+ * Middleware Express: verifica el Bearer token y adjunta el payload en req.user.
+ * Lanza 401 si el token está ausente o es inválido.
+ */
+export function authenticate(req, res, next) {
+  try {
+    const authHeader = typeof req.get === 'function'
+      ? req.get('authorization')
+      : req.headers?.authorization;
+
+    const payload = verifyAuthorizationHeader(authHeader);
+    req.user = payload;
+    next();
+  } catch (error) {
+    next(error);
+  }
+}
+
 const INVALID_TOKEN_STATUS = 401;
 const INVALID_TOKEN_MESSAGE = 'El token de autenticación no es válido.';
 const BEARER_TOKEN_PATTERN = /^Bearer\s+(\S+)$/i;
