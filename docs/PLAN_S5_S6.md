@@ -160,4 +160,4 @@ cancelled → (terminal)
 
 - [x] Fase 0 — Análisis y plan
 - [x] Fase 1 — S5 Productos y Roles
-- [ ] Fase 2 — S6 Pedidos
+- [x] Fase 2 — S6 Pedidos
