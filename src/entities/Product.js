@@ -13,6 +13,7 @@ export const Product = new EntitySchema({
     code: {
       type: 'varchar',
       length: 150,
+      unique: true,
     },
     name: {
       type: 'varchar',
@@ -38,6 +39,11 @@ export const Product = new EntitySchema({
     category_id: {
       type: 'int',
     },
+    category_name: {
+      type: 'varchar',
+      length: 100,
+      nullable: true,
+    },
     createdAt: {
       type: 'timestamp',
       createDate: true,
@@ -49,6 +55,15 @@ export const Product = new EntitySchema({
     views: {
       type: 'int',
       default: 0,
-    }
+    },
+    is_active: {
+      type: 'boolean',
+      default: true,
+    },
+    deleted_at: {
+      type: 'timestamp',
+      nullable: true,
+      deleteDate: true,
+    },
   },
 });
