@@ -8,7 +8,6 @@ const PORT = process.env.PORT || 3000;
 
 try {
   await AppDataSource.initialize();
-  console.log('Conexión a PostgreSQL establecida correctamente.');
 
   app.listen(PORT, () => {
     console.log(`Nova Market API ejecutándose en el puerto ${PORT}`);

@@ -1,0 +1,341 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { User } from '../../src/entities/User.js';
+import { UserModelFactory } from '../../src/models/user.model.js';
+
+const VALID_EMAIL = 'ana@example.com';
+const VALID_PASSWORD = 'password123';
+
+function createRepository({ userToFind = null, error = null } = {}) {
+  const calls = [];
+
+  const repository = {
+    create(data) {
+      calls.push(['create', data]);
+      return { ...data };
+    },
+
+    async save(user) {
+      calls.push(['save', user]);
+
+      if (error) {
+        throw error;
+      }
+
+      return { id: 8, ...user };
+    },
+
+    async findOneBy(criteria) {
+      calls.push(['findOneBy', criteria]);
+
+      if (error) {
+        throw error;
+      }
+
+      return userToFind;
+    },
+  };
+
+  return { repository, calls };
+}
+
+async function assertBadRequest(promise, expectedMessage) {
+  await assert.rejects(promise, (error) => {
+    assert.equal(error.statusCode, 400);
+    assert.equal(error.message, expectedMessage);
+    return true;
+  });
+}
+
+test('create construye y guarda el usuario', async () => {
+  const input = {
+    name: 'Ana',
+    lastName: 'Pérez',
+    email: VALID_EMAIL,
+    password: VALID_PASSWORD,
+    roleId: 1,
+  };
+  const { repository, calls } = createRepository();
+  const model = UserModelFactory(repository);
+
+  const result = await model.create(input);
+
+  assert.deepEqual(calls, [
+    ['create', input],
+    ['save', input],
+  ]);
+  assert.deepEqual(result, { id: 8, ...input });
+});
+
+test('findByEmail devuelve el usuario encontrado', async () => {
+  const expectedUser = { id: 8, email: VALID_EMAIL };
+  const { repository, calls } = createRepository({
+    userToFind: expectedUser,
+  });
+  const model = UserModelFactory(repository);
+
+  const result = await model.findByEmail(VALID_EMAIL);
+
+  assert.deepEqual(calls, [
+    ['findOneBy', { email: VALID_EMAIL }],
+  ]);
+  assert.equal(result, expectedUser);
+});
+
+test('findByEmail devuelve null cuando no encuentra el usuario', async () => {
+  const { repository, calls } = createRepository();
+  const model = UserModelFactory(repository);
+
+  const result = await model.findByEmail(VALID_EMAIL);
+
+  assert.equal(result, null);
+  assert.deepEqual(calls, [
+    ['findOneBy', { email: VALID_EMAIL }],
+  ]);
+});
+
+test('findById devuelve el usuario y consulta por el ID recibido', async () => {
+  const expectedUser = { id: 8, email: VALID_EMAIL };
+  const { repository, calls } = createRepository({
+    userToFind: expectedUser,
+  });
+  const model = UserModelFactory(repository);
+
+  const result = await model.findById(8);
+
+  assert.equal(result, expectedUser);
+  assert.deepEqual(calls, [
+    ['findOneBy', { id: 8 }],
+  ]);
+});
+
+test('findById rechaza IDs que no sean enteros positivos sin consultar el repositorio', async () => {
+  const { repository, calls } = createRepository();
+  const model = UserModelFactory(repository);
+
+  for (const id of [0, -1, 1.5, NaN, '8', null]) {
+    await assert.rejects(
+      model.findById(id),
+      {
+        name: 'TypeError',
+        message: 'El ID debe ser un número entero positivo.',
+      },
+    );
+  }
+
+  assert.deepEqual(calls, []);
+});
+
+test('getPasswordHash devuelve el hash guardado del usuario', () => {
+  const user = new User({ password: '$2b$12$hash-de-prueba' });
+  const { repository, calls } = createRepository();
+  const model = UserModelFactory(repository);
+
+  const passwordHash = model.getPasswordHash(user);
+
+  assert.equal(passwordHash, user.password);
+  assert.deepEqual(calls, []);
+});
+
+test('updateLastLogin actualiza y persiste la fecha de acceso', async () => {
+  const user = new User({ id: 8, lastLogin: null });
+  const { repository, calls } = createRepository();
+  const model = UserModelFactory(repository);
+  const beforeUpdate = Date.now();
+
+  const updatedUser = await model.updateLastLogin(user);
+
+  assert.ok(updatedUser.lastLogin instanceof Date);
+  assert.ok(updatedUser.lastLogin.getTime() >= beforeUpdate);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0][0], 'save');
+  assert.equal(calls[0][1], user);
+});
+
+test('getPasswordHash rechaza valores que no son instancias de User', () => {
+  const { repository, calls } = createRepository();
+  const model = UserModelFactory(repository);
+
+  assert.throws(
+    () => model.getPasswordHash({ password: '$2b$12$hash-de-prueba' }),
+    {
+      name: 'TypeError',
+      message: 'Se esperaba una instancia de User.',
+    },
+  );
+  assert.deepEqual(calls, []);
+});
+
+test('updateLastLogin rechaza valores que no son instancias de User', async () => {
+  const { repository, calls } = createRepository();
+  const model = UserModelFactory(repository);
+
+  await assert.rejects(
+    model.updateLastLogin({ id: 8, lastLogin: null }),
+    {
+      name: 'TypeError',
+      message: 'Se esperaba una instancia de User.',
+    },
+  );
+  assert.deepEqual(calls, []);
+});
+
+test('create rechaza email ausente o de tipo inválido', async () => {
+  const { repository, calls } = createRepository();
+  const model = UserModelFactory(repository);
+  const invalidInputs = [
+    { password: VALID_PASSWORD },
+    { email: null, password: VALID_PASSWORD },
+    { email: 123, password: VALID_PASSWORD },
+    { email: '', password: VALID_PASSWORD },
+  ];
+
+  for (const input of invalidInputs) {
+    await assertBadRequest(
+      model.create(input),
+      'Hay datos faltantes o inválidos. Asegúrese de proporcionar email y contraseña válidos.',
+    );
+  }
+
+  assert.deepEqual(calls, []);
+});
+
+test('create rechaza contraseña ausente o de tipo inválido', async () => {
+  const { repository, calls } = createRepository();
+  const model = UserModelFactory(repository);
+  const invalidInputs = [
+    { email: VALID_EMAIL },
+    { email: VALID_EMAIL, password: null },
+    { email: VALID_EMAIL, password: 123 },
+    { email: VALID_EMAIL, password: '' },
+  ];
+
+  for (const input of invalidInputs) {
+    await assertBadRequest(
+      model.create(input),
+      'Hay datos faltantes o inválidos. Asegúrese de proporcionar email y contraseña válidos.',
+    );
+  }
+
+  assert.deepEqual(calls, []);
+});
+
+test('create rechaza un email con formato inválido', async () => {
+  const { repository, calls } = createRepository();
+  const model = UserModelFactory(repository);
+
+  await assertBadRequest(
+    model.create({
+      email: 'no-es-un-email',
+      password: VALID_PASSWORD,
+    }),
+    'El email proporcionado no es válido.',
+  );
+
+  assert.deepEqual(calls, []);
+});
+
+test('create rechaza una contraseña de más de 72 bytes', async () => {
+  const { repository, calls } = createRepository();
+  const model = UserModelFactory(repository);
+  const password = 'a'.repeat(73);
+
+  assert.equal(Buffer.byteLength(password, 'utf8'), 73);
+
+  await assertBadRequest(
+    model.create({
+      email: VALID_EMAIL,
+      password,
+    }),
+    'La contraseña es demasiado larga.',
+  );
+
+  assert.deepEqual(calls, []);
+});
+
+test('create acepta una contraseña de exactamente 72 bytes', async () => {
+  const { repository, calls } = createRepository();
+  const model = UserModelFactory(repository);
+  const password = 'a'.repeat(72);
+
+  const result = await model.create({
+    email: VALID_EMAIL,
+    password,
+  });
+
+  assert.equal(Buffer.byteLength(password, 'utf8'), 72);
+  assert.deepEqual(calls, [
+    ['create', { email: VALID_EMAIL, password }],
+    ['save', { email: VALID_EMAIL, password }],
+  ]);
+  assert.deepEqual(result, {
+    id: 8,
+    email: VALID_EMAIL,
+    password,
+  });
+});
+
+test('findByEmail normaliza el email antes de consultar', async () => {
+  const { repository, calls } = createRepository();
+  const model = UserModelFactory(repository);
+
+  await model.findByEmail('ANA@EXAMPLE.COM');
+
+  assert.deepEqual(calls, [
+    ['findOneBy', { email: VALID_EMAIL }],
+  ]);
+});
+
+test('findByEmail rechaza emails ausentes, de tipo inválido o con formato incorrecto', async () => {
+  const { repository, calls } = createRepository();
+  const model = UserModelFactory(repository);
+  const invalidEmails = [
+    undefined,
+    null,
+    123,
+    '',
+    'no-es-un-email',
+  ];
+
+  for (const email of invalidEmails) {
+    await assertBadRequest(
+      model.findByEmail(email),
+      'El email proporcionado no es válido.',
+    );
+  }
+
+  assert.deepEqual(calls, []);
+});
+
+test('create propaga el error del repositorio al guardar', async () => {
+  const repositoryError = new Error('Error de repositorio');
+  const { repository, calls } = createRepository({ error: repositoryError });
+  const model = UserModelFactory(repository);
+
+  await assert.rejects(
+    model.create({
+      name: 'Ana',
+      lastName: 'Pérez',
+      email: VALID_EMAIL,
+      password: VALID_PASSWORD,
+    }),
+    (error) => error === repositoryError,
+  );
+
+  assert.deepEqual(calls.map(([method]) => method), ['create', 'save']);
+});
+
+test('findByEmail propaga el error del repositorio al consultar', async () => {
+  const repositoryError = new Error('Error de repositorio');
+  const { repository, calls } = createRepository({ error: repositoryError });
+  const model = UserModelFactory(repository);
+
+  await assert.rejects(
+    model.findByEmail(VALID_EMAIL),
+    (error) => error === repositoryError,
+  );
+
+  assert.deepEqual(calls, [
+    ['findOneBy', { email: VALID_EMAIL }],
+  ]);
+});
